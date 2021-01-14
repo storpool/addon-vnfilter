@@ -27,7 +27,20 @@ Install the _nokogiri_ rubygem on the hosts. The following example is for CentOS
 yum -y --enablerepo=epel install rubygem-nokogiri
 ```
 
-Sync the hosts
+CentOS8 has no rubygem-nokogiri in EPEL so install opennebula-rubygems package from OpenNebula 5.12+ on the hosts.
+
+```bash
+yum -y install opennebula-rubygems
+```
+
+Enable oneadmin to execute ebtables-save on the hosts.
+
+```bash
+echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" /etc/sudoers.d/vnfilter
+chmod 0440 /etc/sudoers.d/vnfilter
+```
+
+Sync the OpenNebula MADs to the hosts
 
 ```bash
 su - oneadmin

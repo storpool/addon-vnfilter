@@ -1,8 +1,8 @@
 # rubocop:disable Naming/FileName
 # vim: ts=4 sw=4 et
 # -------------------------------------------------------------------------- #
-# Copyright 2019, StorPool                                                   #
-# Portions copyright OpenNebula Project, OpenNebula Systems                  #
+# Copyright 2002-2021, StorPool                                              #
+# Portion copyright OpenNebula Project, OpenNebula Systems                   #
 #                                                                            #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may    #
 # not use this file except in compliance with the License. You may obtain    #
@@ -234,24 +234,27 @@ class VnFilter < VNMMAD::VNMDriver
     def deactivate_ebtables(chain)
         commands =  VNMMAD::VNMNetwork::Commands.new
         @slog.info "deactivate_ebtables(#{chain})"
-        commands.add :ebtables, "-t nat -L --Lx"
+        commands.add "sudo -n", "ebtables-save"
         ebtables_nat = commands.run!
         if !ebtables_nat.nil?
             ebtables = Array.new
             ebtables_nat.split("\n").each do |rule|
                 if rule.match(/-j #{chain}/)
+                    @slog.info "[rule] #{rule}"
                     rule_e = rule.split
-                    if rule_e[5] == "-p"
+                    if rule_e[2] == "-p"
+                        ebtables.push("-t nat -F #{rule_e[-1]}")
                         ebtables.push("-t nat -X #{rule_e[-1]}")
-                        ebtables.unshift("-t nat -D #{rule_e[4..-1].join(" ")}")
+                        ebtables.unshift("-t nat -D #{rule_e[1..-1].join(" ")}")
                     else
-                        ebtables.push("-t nat -D #{rule_e[4..-1].join(" ")}")
+                        ebtables.push("-t nat -D #{rule_e[1..-1].join(" ")}")
+                        ebtables.push("-t nat -F #{rule_e[-1]}")
                         ebtables.push("-t nat -X #{rule_e[-1]}")
                     end
                 end
             end
             if ebtables.any?
-                ebtables.each { |c| @slog.info "ebtables #{c}" }
+                ebtables.each { |c| @slog.info "[run] ebtables #{c}" }
                 ebtables.each { |c| commands.add :ebtables, c }
                 commands.run!
             end
