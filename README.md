@@ -18,7 +18,7 @@ Copy the files on the front-end and change the ownership to the oneadmin user
 ```bash
 cp -a remotes/* /var/lib/one/remotes/
 
-chown -R oneadmin/oneadmin /var/lib/one/remotes/
+chown -R oneadmin.oneadmin /var/lib/one/remotes/
 ```
 
 Install the _nokogiri_ rubygem on the hosts. The following example is for CentOS 7, check the Os docs/packages if other OS is used.
