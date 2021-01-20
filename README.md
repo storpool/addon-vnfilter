@@ -36,7 +36,7 @@ yum -y install opennebula-rubygems
 Enable oneadmin to execute ebtables-save on the hosts.
 
 ```bash
-echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" /etc/sudoers.d/vnfilter
+echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" >/etc/sudoers.d/vnfilter
 chmod 0440 /etc/sudoers.d/vnfilter
 ```
 
