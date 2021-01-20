@@ -29,11 +29,15 @@ done
 echo "*** set ownership ..."
 chown -R oneadmin.oneadmin /var/lib/one/remotes/
 
-echo "*** sync hosts ..."
-su - oneadmin -c 'onehost sync --force'
+if [ -z "$SKIP_HOSTS_SYNC" ]; then
+    echo "*** sync hosts ..."
+    su - oneadmin -c 'onehost sync --force'
+fi
 
-echo "*** register the vnfilter hook ..."
-onehook show "vnfilter" || onehook create vnfilter.hooktemplate
+if [ -z "$SKIP_ONEHOOK_REGISTRATION" ]; then
+    echo "*** register the vnfilter hook ..."
+    onehook show "vnfilter" || onehook create vnfilter.hooktemplate
+fi
 
 cat <<EOF
 *** Please install rubygem nokogiri on the hosts:"
