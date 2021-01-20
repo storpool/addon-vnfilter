@@ -39,6 +39,11 @@ if [ -z "$SKIP_ONEHOOK_REGISTRATION" ]; then
     onehook show "vnfilter" || onehook create vnfilter.hooktemplate
 fi
 
+if [ -z "$SKIP_SUDOERS" ]; then
+    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" >/etc/sudoers.d/vnfilter
+    chmod 0440 /etc/sudoers.d/vnfilter
+fi
+
 cat <<EOF
 *** Please install rubygem nokogiri on the hosts:"
 
