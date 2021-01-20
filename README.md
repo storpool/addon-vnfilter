@@ -16,7 +16,7 @@ The currently supported VN MADs are _802.1Q_ and _fw_(Bridged & Security Groups)
 Copy the files on the front-end and change the ownership to the oneadmin user
 
 ```bash
-cp -a remotes/* /var/lib/one/remotes/
+cp -a remotes/ /var/lib/one/
 
 chown -R oneadmin.oneadmin /var/lib/one/remotes/
 ```
