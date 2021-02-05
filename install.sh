@@ -19,35 +19,35 @@
 
 set -e
 
-echo "*** copy files ..."
-for f in $(find remotes/ -type f -o -type l); do
-    p="/var/lib/one/${f%/*}"
-    [ -d "$p" ] || mkdir -vp "$p"
-    cp -vf "$f" "$p"/
-done
+if [ -z "$HOST_INSTALL" ]; then
+    echo "*** copy files ..."
+    for f in $(find remotes/ -type f -o -type l); do
+        p="/var/lib/one/${f%/*}"
+        [ -d "$p" ] || mkdir -vp "$p"
+        cp -vf "$f" "$p"/
+    done
 
-echo "*** set ownership ..."
-chown -R oneadmin.oneadmin /var/lib/one/remotes/
+    echo "*** set file ownership ..."
+    chown -R oneadmin.oneadmin /var/lib/one/remotes/
 
-if [ -z "$SKIP_HOSTS_SYNC" ]; then
-    echo "*** sync hosts ..."
-    su - oneadmin -c 'onehost sync --force'
-fi
-
-if [ -z "$SKIP_ONEHOOK_REGISTRATION" ]; then
-    echo "*** register the vnfilter hook ..."
-    onehook show "vnfilter" || onehook create vnfilter.hooktemplate
-fi
-
-if [ -z "$SKIP_SUDOERS" ]; then
+    if [ -z "$SKIP_HOSTS_SYNC" ]; then
+        echo "*** sync hosts ..."
+        su - oneadmin -c 'onehost sync --force'
+    fi
+    if [ -z "$SKIP_ONEHOOK_REGISTRATION" ]; then
+        if [ -f vnfilter.hooktemplate ]; then
+            echo "*** register the vnfilter hook ..."
+            onehook show "vnfilter" || onehook create vnfilter.hooktemplate
+        else
+            echo "*** Error: vnfilter.hooktemplate not found!"
+            echo "*** Please define the vnfilter hook manually"
+        fi
+    fi
+else
+    yum -y install rubygem-nokogiri || \
+    dnf -y install opennebula-rubygems || \
+    echo -u "\n*** Please install rubygem nokogiri.\n"
     echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" >/etc/sudoers.d/vnfilter
     chmod 0440 /etc/sudoers.d/vnfilter
 fi
 
-cat <<EOF
-*** Please install rubygem nokogiri on the hosts:"
-
-yum -y --enablerepo=epel install opennebula-rubygems || \
-yum -y --enablerepo=epel install rubygem-nokogiri || \
-echo "ERROR: Can't install rubygem nokogiri."
-EOF
