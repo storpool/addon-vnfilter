@@ -161,7 +161,7 @@ def toggle_ipset_filter(vm)
         if !vm[:a][key].nil? and !vm[:a][key].empty?
             chain = "#{vm[:nicdev]}-#{e.split('_')[0].downcase}-spoofing"
             run(['sudo', 'ipset', '-exist', vm[:action], chain, vm[:a][key]])
-            if e == 'IP6_CLOBAL' and !vm[:a][:ip6_link].nil?
+            if e == 'IP6_GLOBAL' and !vm[:a][:ip6_link].nil?
                 link = vm[:a][:ip6_link]
                 run(['sudo', 'ipset', '-exist', vm[:action], chain, link])
             end
