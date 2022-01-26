@@ -77,3 +77,17 @@ There is a lot of room for improvements and not all use cases tested so pull req
 
 The scripts logs all issued commands to syslog so it is good to take a look there beside looking at the iptables, ebtables(_nat_ table) and ipset rules.
 
+## Uninstall
+
+The uminstall procedure is in two steps as follow:
+
+* Step 1
+  * delete the vnfilter hook with `onehook delete $VNFILTER_HOOK_ID`
+  * delete the post.d files on the frontend(s) `rm /var/lib/one/remotes/vnm/*/post.d/vnfilter*`
+  * delete the post.d files on the hosts `rm /var/tmp/one/vnm/*/post.d/vnfilter*`
+  * migrate (live) the VMs between the hosts
+* Step 2
+  * delete the clean.d files on the frontend(s) `rm /var/lib/one/remotes/vnm/*/clean.d/vnfilter*` and on the hosts `rm /var/tmp/one/vnm/*/clean.d/vnfilter*`
+  * delete the clean.d files on the hosts `rm /var/tmp/one/vnm/*/clean.d/vnfilter*`
+  * delete the rest of the vnfilter files on the frontend(s) `rm /var/lib/one/remotes/vnm/vnfilter* /var/lib/one/remotes/hooks/alias_ip/vnfilter*` 
+  * delete the rest of the vnfilter files on the hosts `rm /var/tmp/one/vnm/vnfilter* /var/tmp/one/hooks/alias_ip/vnfilter* /etc/sudoers.d/vnfilter`
