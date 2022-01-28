@@ -79,7 +79,7 @@ The scripts logs all issued commands to syslog so it is good to take a look ther
 
 ## Uninstall
 
-The uminstall procedure is in two steps as follow:
+The uninstall procedure is in two steps as follow:
 
 * Step 1
   * delete the vnfilter hook with `onehook delete $VNFILTER_HOOK_ID`
