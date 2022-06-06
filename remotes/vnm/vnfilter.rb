@@ -53,6 +53,10 @@ class VnFilter < VNMMAD::VNMDriver
                 end
             end
             [:ip6, :ip6_global, :ip6_link].each do |key|
+                if !nic[:alias_id].nil? && "#{key}" == "ip6_link"
+                    @slog.info "activate() Skip IPv6 link local address for alias interfaces"
+                    next
+                end
                 if !nic[key].nil? && !nic[key].empty?
                     ip6 << nic[key]
                 end
