@@ -248,15 +248,15 @@ class VnFilter < VNMMAD::VNMDriver
             ebtables = Array.new
             ebtables_nat.split("\n").each do |rule|
                 if rule.match(/-j #{chain}/)
-                    @slog.info "[rule] #{rule}"
                     rule_e = rule.split
                     if ipv4
                         if rule_e[5] == ipv4
-                            @slog.info "Delete #{ipv4}"
+                            @slog.info "Delete #{rule}"
                             ebtables.push("-t nat -D #{rule_e[1..-1].join(" ")}")
                         end
                         next
                     end
+                    @slog.info "[rule] #{rule}"
                     if rule_e[2] == "-p"
                         ebtables.push("-t nat -F #{rule_e[-1]}")
                         ebtables.push("-t nat -X #{rule_e[-1]}")
