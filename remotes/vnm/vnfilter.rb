@@ -30,7 +30,7 @@ class VnFilter < VNMMAD::VNMDriver
         @locking = true
         @slog = Syslog::Logger.new 'vnfilter'
         xpath_filter ||= XPATH_FILTER
-        @slog.info "initialize #{xpath_filter}"
+        @slog.info "initialize #{xpath_filter} //#{caller[-1]}"
         super(vm_template, xpath_filter, deploy_id)
     end
 
