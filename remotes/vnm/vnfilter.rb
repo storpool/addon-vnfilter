@@ -219,21 +219,29 @@ class VnFilter < VNMMAD::VNMDriver
     def deactivate
         lock
         vm_id = vm['ID']
-        attach_nic_id = vm['TEMPLATE/NIC[ATTACH="YES"]/NIC_ID']
-        @slog.info "deactivate() VM #{vm_id} (#{attach_nic_id}) BEGIN"
-        process do |nic|
-            nic_id = nic[:nic_id]
-            next if attach_nic_id and attach_nic_id != nic_id
-            chain = "one-#{vm_id}-#{nic_id}"
-            deactivate_ebtables(chain)
+        parent_id = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/PARENT_ID']
+        if parent_id
+            ipv4 = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/IP']
+            @slog.info "deactivate() VM #{vm_id} parent_id:#{parent_id} #{ipv4} BEGIN"
+            chain = "one-#{vm_id}-#{parent_id}"
+            deactivate_ebtables(chain, ipv4) if ipv4
+        else
+            attach_nic_id = vm['TEMPLATE/NIC[ATTACH="YES"]/NIC_ID']
+            @slog.info "deactivate() VM #{vm_id} attach_nic_id:#{attach_nic_id} BEGIN"
+            process do |nic|
+                nic_id = nic[:nic_id]
+                next if attach_nic_id and attach_nic_id != nic_id
+                chain = "one-#{vm_id}-#{nic_id}"
+                deactivate_ebtables(chain)
+            end
         end
         @slog.info "deactivate() VM #{vm_id} END"
         unlock
     end
 
-    def deactivate_ebtables(chain)
+    def deactivate_ebtables(chain, ipv4 = nil)
         commands =  VNMMAD::VNMNetwork::Commands.new
-        @slog.info "deactivate_ebtables(#{chain})"
+        @slog.info "deactivate_ebtables(#{chain}, #{ipv4})"
         commands.add "sudo -n", "ebtables-save"
         ebtables_nat = commands.run!
         if !ebtables_nat.nil?
@@ -242,6 +250,13 @@ class VnFilter < VNMMAD::VNMDriver
                 if rule.match(/-j #{chain}/)
                     @slog.info "[rule] #{rule}"
                     rule_e = rule.split
+                    if ipv4
+                        if rule_e[5] == ipv4
+                            @slog.info "Delete #{ipv4}"
+                            ebtables.push("-t nat -D #{rule_e[1..-1].join(" ")}")
+                        end
+                        next
+                    end
                     if rule_e[2] == "-p"
                         ebtables.push("-t nat -F #{rule_e[-1]}")
                         ebtables.push("-t nat -X #{rule_e[-1]}")
