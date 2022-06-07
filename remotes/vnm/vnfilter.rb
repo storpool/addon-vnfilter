@@ -74,6 +74,7 @@ class VnFilter < VNMMAD::VNMDriver
         vm_id = vm['ID']
         attach_nic_id = vm['TEMPLATE/NIC[ATTACH="YES"]/NIC_ID']
         parent_id = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/PARENT_ID']
+        caller_mad = caller[-1].split('/')[-3]
         if parent_id
             ipv4 = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/IP']
             if ipv4
@@ -128,7 +129,8 @@ class VnFilter < VNMMAD::VNMDriver
 
         nics.each do |nic_id, nicdata|
             nic = nicdata[:nic]
-            @slog.info "VM #{vm_id} nic_id #{nic_id} attach_nic_id:#{attach_nic_id}"
+            vn_mad = nic[:vn_mad]
+            @slog.info "VM #{vm_id} #{vn_mad} nic_id #{nic_id} attach_nic_id:#{attach_nic_id}"
             OpenNebula.log_info "activate #{vm_id} nic_id #{nic_id} attach_nic_id #{attach_nic_id}"
             next if attach_nic_id and attach_nic_id != nic_id
             chain = "one-#{vm_id}-#{nic_id}"
