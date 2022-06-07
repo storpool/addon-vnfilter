@@ -299,7 +299,7 @@ class VnFilter < VNMMAD::VNMDriver
                 if ipv4
                     if rule.match(/-A #{chain}/)
                         rule_e = rule.split
-                        @slog.info "[rule] #{rule}"
+                        #@slog.info "[rule] #{rule}"
                         if rule_e[5] == ipv4
                             @slog.info "Delete #{rule}"
                             ebtables.push("-t nat -D #{rule_e[1..-1].join(" ")}")
