@@ -53,6 +53,10 @@ class VnFilter < VNMMAD::VNMDriver
                 end
             end
             [:ip6, :ip6_global, :ip6_link].each do |key|
+                if !nic[:alias_id].nil? && "#{key}" == "ip6_link"
+                    @slog.info "activate() Skip IPv6 link local address for alias interfaces"
+                    next
+                end
                 if !nic[key].nil? && !nic[key].empty?
                     ip6 << nic[key]
                 end
@@ -247,15 +251,21 @@ class VnFilter < VNMMAD::VNMDriver
         if !ebtables_nat.nil?
             ebtables = Array.new
             ebtables_nat.split("\n").each do |rule|
-                if rule.match(/-j #{chain}/)
-                    rule_e = rule.split
-                    if ipv4
+                if ipv4
+                    if rule.match(/-A #{chain}/)
+                        rule_e = rule.split
+                        @slog.info "[rule] #{rule}"
                         if rule_e[5] == ipv4
                             @slog.info "Delete #{rule}"
                             ebtables.push("-t nat -D #{rule_e[1..-1].join(" ")}")
                         end
-                        next
                     end
+                    next
+                end
+
+                # flush chains only if not ipv4 defined (no alias nic)
+                if rule.match(/-j #{chain}/)
+                    rule_e = rule.split
                     @slog.info "[rule] #{rule}"
                     if rule_e[2] == "-p"
                         ebtables.push("-t nat -F #{rule_e[-1]}")
