@@ -143,7 +143,7 @@ class VnFilter < VNMMAD::VNMDriver
                 begin
                     iptables_s = commands.run!
                 rescue
-                    @slog.warn "Can't process chain #{chain_o}"
+                    @slog.warn "Can't process chain #{chain_o} IPv4"
                     next
                 end
                 iptables_s.each_line { |c| @slog.info "[iptables -S] #{c}" }
@@ -161,7 +161,12 @@ class VnFilter < VNMMAD::VNMDriver
                     commands.run!
                 end
                 commands.add :ip6tables, "-S #{chain_o}"
-                ip6tables_s = commands.run!
+                begin
+                    ip6tables_s = commands.run!
+                rescue
+                    @slog.warn "Can't process chain #{chain_o} IPv6"
+                    next
+                end
                 ip6tables_s.each_line { |c| @slog.info "[ip6tables -S] #{c}" }
                 if ip6tables_s !~ /#{chain}-ip6-spoofing/
                     @slog.debug "altering #{chain_o} to add #{chain}-ip6-spoofing"
