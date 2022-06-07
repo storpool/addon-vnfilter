@@ -34,13 +34,58 @@ class VnFilter < VNMMAD::VNMDriver
         super(vm_template, xpath_filter, deploy_id)
     end
 
+    def append_ebtables(chain, ipv4)
+        @slog.info "activate_ebtables(#{chain},#{ipv4})"
+        dirs = { "i" => "src", "o" => "dst" }
+        ret = false
+        commands =  VNMMAD::VNMNetwork::Commands.new
+        commands.add "sudo -n", "ebtables-save"
+        ebtables_nat = commands.run!
+        if !ebtables_nat.nil?
+            ebtables_nat.split("\n").each do |rule|
+                if rule.match(/-A #{chain}-([io]{1})-arp4/)
+                    dir = $+
+                    rule_e = rule.split
+                    ip = rule_e[5]
+                    if ipv4 == rule_e[5]
+                        @slog.info "[match] #{rule} // #{ip} #{dir}"
+                        dirs.delete(dir)
+                        ret = true
+                    end
+                end
+            end
+        end
+        if dirs.any?
+            dirs.each do |k,v|
+                @slog.info "whitelist arp-ip-#{v} #{ipv4} (#{k})"
+                commands.add :ebtables, "-t nat -A #{chain}-#{k}-arp4 -p ARP "\
+                                            "--arp-ip-#{v} #{ipv4} -j RETURN"
+                ret = true
+            end
+            commands.run!
+        end
+        return ret
+    end
+
     def activate
         ipv4_offset = 2
         ipv6_offset = 5
         lock
         vm_id = vm['ID']
         attach_nic_id = vm['TEMPLATE/NIC[ATTACH="YES"]/NIC_ID']
-        @slog.info "activate() VM #{vm_id} (#{attach_nic_id}) BEGIN"
+        parent_id = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/PARENT_ID']
+        if parent_id
+            ipv4 = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/IP']
+            if ipv4
+                @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} BEGIN"
+                chain = "one-#{vm_id}-#{parent_id}"
+                if append_ebtables(chain, ipv4)
+                    @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} END"
+                    return
+                end
+            end
+        end
+        @slog.info "activate() VM #{vm_id} (#{attach_nic_id}) parent_id:#{parent_id} BEGIN"
         # pre-process
         nics = Hash.new
         process do |nic|
