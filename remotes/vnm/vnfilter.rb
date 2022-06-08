@@ -82,6 +82,7 @@ class VnFilter < VNMMAD::VNMDriver
                 chain = "one-#{vm_id}-#{parent_id}"
                 if append_ebtables(chain, ipv4)
                     @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} END"
+                    unlock
                     return
                 end
             end
