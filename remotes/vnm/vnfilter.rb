@@ -30,8 +30,41 @@ class VnFilter < VNMMAD::VNMDriver
         @locking = true
         @slog = Syslog::Logger.new 'vnfilter'
         xpath_filter ||= XPATH_FILTER
-        @slog.info "initialize #{xpath_filter}"
+        @slog.info "initialize #{xpath_filter} //#{caller[-1]}"
         super(vm_template, xpath_filter, deploy_id)
+    end
+
+    def append_ebtables(chain, ipv4)
+        @slog.info "activate_ebtables(#{chain},#{ipv4})"
+        dirs = { "i" => "src", "o" => "dst" }
+        ret = false
+        commands =  VNMMAD::VNMNetwork::Commands.new
+        commands.add "sudo -n", "ebtables-save"
+        ebtables_nat = commands.run!
+        if !ebtables_nat.nil?
+            ebtables_nat.split("\n").each do |rule|
+                if rule.match(/-A #{chain}-([io]{1})-arp4/)
+                    dir = $+
+                    rule_e = rule.split
+                    ip = rule_e[5]
+                    if ipv4 == rule_e[5]
+                        @slog.info "[match] #{rule} // #{ip} #{dir}"
+                        dirs.delete(dir)
+                        ret = true
+                    end
+                end
+            end
+        end
+        if dirs.any?
+            dirs.each do |k,v|
+                @slog.info "whitelist arp-ip-#{v} #{ipv4} (#{k})"
+                commands.add :ebtables, "-t nat -A #{chain}-#{k}-arp4 -p ARP "\
+                                            "--arp-ip-#{v} #{ipv4} -j RETURN"
+                ret = true
+            end
+            commands.run!
+        end
+        return ret
     end
 
     def activate
@@ -40,7 +73,21 @@ class VnFilter < VNMMAD::VNMDriver
         lock
         vm_id = vm['ID']
         attach_nic_id = vm['TEMPLATE/NIC[ATTACH="YES"]/NIC_ID']
-        @slog.info "activate() VM #{vm_id} (#{attach_nic_id}) BEGIN"
+        parent_id = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/PARENT_ID']
+        caller_mad = caller[-1].split('/')[-3]
+        if parent_id
+            ipv4 = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/IP']
+            if ipv4
+                @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} BEGIN"
+                chain = "one-#{vm_id}-#{parent_id}"
+                if append_ebtables(chain, ipv4)
+                    @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} END"
+                    unlock
+                    return
+                end
+            end
+        end
+        @slog.info "activate() VM #{vm_id} (#{attach_nic_id}) parent_id:#{parent_id} BEGIN"
         # pre-process
         nics = Hash.new
         process do |nic|
@@ -53,6 +100,8 @@ class VnFilter < VNMMAD::VNMDriver
                 end
             end
             [:ip6, :ip6_global, :ip6_link].each do |key|
+                # Skip IPv6 link local address for alias interfaces
+                next if !nic[:alias_id].nil? && key == "ip6_link"
                 if !nic[key].nil? && !nic[key].empty?
                     ip6 << nic[key]
                 end
@@ -81,8 +130,13 @@ class VnFilter < VNMMAD::VNMDriver
 
         nics.each do |nic_id, nicdata|
             nic = nicdata[:nic]
+            vn_mad = nic[:vn_mad]
+            if caller_mad != vn_mad
+                @slog.info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} Skip caller VN_MAD is #{caller_mad}"
+                next
+            end
             @slog.info "VM #{vm_id} nic_id #{nic_id} attach_nic_id:#{attach_nic_id}"
-            OpenNebula.log_info "activate #{vm_id} nic_id #{nic_id} attach_nic_id #{attach_nic_id}"
+            OpenNebula.log_info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} attach_nic_id #{attach_nic_id}"
             next if attach_nic_id and attach_nic_id != nic_id
             chain = "one-#{vm_id}-#{nic_id}"
             chain_i = "#{chain}-i"
@@ -96,7 +150,7 @@ class VnFilter < VNMMAD::VNMDriver
                 begin
                     iptables_s = commands.run!
                 rescue
-                    @slog.warn "Can't process chain #{chain_o}"
+                    @slog.warn "Can't process chain #{chain_o} IPv4"
                     next
                 end
                 iptables_s.each_line { |c| @slog.info "[iptables -S] #{c}" }
@@ -114,7 +168,12 @@ class VnFilter < VNMMAD::VNMDriver
                     commands.run!
                 end
                 commands.add :ip6tables, "-S #{chain_o}"
-                ip6tables_s = commands.run!
+                begin
+                    ip6tables_s = commands.run!
+                rescue
+                    @slog.warn "Can't process chain #{chain_o} IPv6"
+                    next
+                end
                 ip6tables_s.each_line { |c| @slog.info "[ip6tables -S] #{c}" }
                 if ip6tables_s !~ /#{chain}-ip6-spoofing/
                     @slog.debug "altering #{chain_o} to add #{chain}-ip6-spoofing"
@@ -219,29 +278,63 @@ class VnFilter < VNMMAD::VNMDriver
     def deactivate
         lock
         vm_id = vm['ID']
-        attach_nic_id = vm['TEMPLATE/NIC[ATTACH="YES"]/NIC_ID']
-        @slog.info "deactivate() VM #{vm_id} (#{attach_nic_id}) BEGIN"
+        caller_mad = caller[-1].split('/')[-3]
+        @slog.info "deactivate() VM #{vm_id} caller_mad:#{caller_mad} BEGIN"
+        res = false
+        attach = false
+        nics = Hash.new
         process do |nic|
+            next if caller_mad != nic[:vn_mad]
             nic_id = nic[:nic_id]
-            next if attach_nic_id and attach_nic_id != nic_id
             chain = "one-#{vm_id}-#{nic_id}"
-            deactivate_ebtables(chain)
+            if nic[:attach]
+                @slog.info "VM #{vm_id} NIC #{nic_id} vn_mad=#{nic[:vn_mad]} parent=#{nic[:parent]} ip=#{nic[:ip]}"
+                attach = true
+                if nic[:parent].nil?
+                    deactivate_ebtables(chain)
+                else
+                    deactivate_ebtables(chain, nic[:ip]) if !nic[:ip].nil?
+                end
+            else
+                if nic[:parent].nil?
+                    nics[nic_id] = nic
+                end
+            end
+        end
+        if !attach
+            nics.each do |nic_id, nic|
+                @slog.info "VM #{vm_id} NIC #{nic_id} vn_mad=#{nic[:vn_mad]} down"
+                deactivate_ebtables("one-#{vm_id}-#{nic_id}")
+            end
         end
         @slog.info "deactivate() VM #{vm_id} END"
         unlock
     end
 
-    def deactivate_ebtables(chain)
+    def deactivate_ebtables(chain, ipv4 = nil)
         commands =  VNMMAD::VNMNetwork::Commands.new
-        @slog.info "deactivate_ebtables(#{chain})"
+        @slog.info "deactivate_ebtables(#{chain}, #{ipv4})"
         commands.add "sudo -n", "ebtables-save"
         ebtables_nat = commands.run!
         if !ebtables_nat.nil?
             ebtables = Array.new
             ebtables_nat.split("\n").each do |rule|
+                if ipv4
+                    if rule.match(/-A #{chain}/)
+                        rule_e = rule.split
+                        #@slog.info "[rule] #{rule}"
+                        if rule_e[5] == ipv4
+                            @slog.info "Delete #{rule}"
+                            ebtables.push("-t nat -D #{rule_e[1..-1].join(" ")}")
+                        end
+                    end
+                    next
+                end
+
+                # flush chains only if not ipv4 defined (no alias nic)
                 if rule.match(/-j #{chain}/)
-                    @slog.info "[rule] #{rule}"
                     rule_e = rule.split
+                    @slog.info "[rule] #{rule}"
                     if rule_e[2] == "-p"
                         ebtables.push("-t nat -F #{rule_e[-1]}")
                         ebtables.push("-t nat -X #{rule_e[-1]}")
