@@ -131,8 +131,12 @@ class VnFilter < VNMMAD::VNMDriver
         nics.each do |nic_id, nicdata|
             nic = nicdata[:nic]
             vn_mad = nic[:vn_mad]
-            @slog.info "VM #{vm_id} #{vn_mad} nic_id #{nic_id} attach_nic_id:#{attach_nic_id}"
-            OpenNebula.log_info "activate #{vm_id} nic_id #{nic_id} attach_nic_id #{attach_nic_id}"
+            if caller_mad != vn_mad
+                @slog.info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} Skip caller VN_MAD is #{caller_mad}"
+                next
+            end
+            @slog.info "VM #{vm_id} nic_id #{nic_id} attach_nic_id:#{attach_nic_id}"
+            OpenNebula.log_info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} attach_nic_id #{attach_nic_id}"
             next if attach_nic_id and attach_nic_id != nic_id
             chain = "one-#{vm_id}-#{nic_id}"
             chain_i = "#{chain}-i"
@@ -274,20 +278,33 @@ class VnFilter < VNMMAD::VNMDriver
     def deactivate
         lock
         vm_id = vm['ID']
-        parent_id = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/PARENT_ID']
-        if parent_id
-            ipv4 = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/IP']
-            @slog.info "deactivate() VM #{vm_id} parent_id:#{parent_id} #{ipv4} BEGIN"
-            chain = "one-#{vm_id}-#{parent_id}"
-            deactivate_ebtables(chain, ipv4) if ipv4
-        else
-            attach_nic_id = vm['TEMPLATE/NIC[ATTACH="YES"]/NIC_ID']
-            @slog.info "deactivate() VM #{vm_id} attach_nic_id:#{attach_nic_id} BEGIN"
-            process do |nic|
-                nic_id = nic[:nic_id]
-                next if attach_nic_id and attach_nic_id != nic_id
-                chain = "one-#{vm_id}-#{nic_id}"
-                deactivate_ebtables(chain)
+        caller_mad = caller[-1].split('/')[-3]
+        @slog.info "deactivate() VM #{vm_id} caller_mad:#{caller_mad} BEGIN"
+        res = false
+        attach = false
+        nics = Hash.new
+        process do |nic|
+            next if caller_mad != nic[:vn_mad]
+            nic_id = nic[:nic_id]
+            chain = "one-#{vm_id}-#{nic_id}"
+            if nic[:attach]
+                @slog.info "VM #{vm_id} NIC #{nic_id} vn_mad=#{nic[:vn_mad]} parent=#{nic[:parent]} ip=#{nic[:ip]}"
+                attach = true
+                if nic[:parent].nil?
+                    deactivate_ebtables(chain)
+                else
+                    deactivate_ebtables(chain, nic[:ip]) if !nic[:ip].nil?
+                end
+            else
+                if nic[:parent].nil?
+                    nics[nic_id] = nic
+                end
+            end
+        end
+        if !attach
+            nics.each do |nic_id, nic|
+                @slog.info "VM #{vm_id} NIC #{nic_id} vn_mad=#{nic[:vn_mad]} down"
+                deactivate_ebtables("one-#{vm_id}-#{nic_id}")
             end
         end
         @slog.info "deactivate() VM #{vm_id} END"
