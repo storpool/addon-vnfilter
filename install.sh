@@ -17,7 +17,7 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-set -e
+set -e -o pipefail
 
 if [ -z "$HOST_INSTALL" ]; then
     echo "*** copy files ..."
@@ -44,10 +44,11 @@ if [ -z "$HOST_INSTALL" ]; then
         fi
     fi
 else
-    yum -y install rubygem-nokogiri || \
-    dnf -y install opennebula-rubygems || \
+    sudo dnf -y install opennebula-rubygems || \
+    sudo apt -y install opennebula-rubygems || \
+    sudo yum -y install rubygem-nokogiri || \
     echo -u "\n*** Please install rubygem nokogiri.\n"
-    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" >/etc/sudoers.d/vnfilter
-    chmod 0440 /etc/sudoers.d/vnfilter
+    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" | sudo tee /etc/sudoers.d/vnfilter
+    sudo chmod 0440 /etc/sudoers.d/vnfilter
 fi
 
