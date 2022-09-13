@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 # -------------------------------------------------------------------------- #
-# Copyright 2002-2021, StorPool                                              #
+# Copyright 2002-2022, StorPool                                              #
 # Portion copyright OpenNebula Project, OpenNebula Systems                   #
 #                                                                            #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may    #
@@ -96,14 +96,16 @@ end
 
 def alias_nic_data()
     xpath = '//TEMPLATE/NIC_ALIAS[ATTACH="YES"]'
-    entries = %w[ALIAS_ID PARENT_ID NAME IP IP6 IP6_GLOBAL IP6_LINK]
+    entries = %w[ALIAS_ID PARENT_ID NAME IP IP6 IP6_GLOBAL IP6_LINK
+                IPV6_PREFIX_LENGTH]
     get_data(xpath, entries)
 end
 
 def nic_data(nic_id)
     xpath = "//TEMPLATE/NIC[NIC_ID=#{nic_id}]"
     entries = %w[IP IP6 IP6_GLOBAL IP6_LINK VN_MAD ALIAS_IDS 
-                 FILTER FILTER_IP_SPOOFING FILTER_MAC_SPOOFING]
+                 FILTER FILTER_IP_SPOOFING FILTER_MAC_SPOOFING
+                 IPV6_PREFIX_LENGTH]
     get_data(xpath, entries)
 end
 
@@ -160,7 +162,12 @@ def toggle_ipset_filter(vm)
         key = e.downcase.to_sym
         if !vm[:a][key].nil? and !vm[:a][key].empty?
             chain = "#{vm[:nicdev]}-#{e.split('_')[0].downcase}-spoofing"
-            run(['sudo', 'ipset', '-exist', vm[:action], chain, vm[:a][key]])
+            ipv6net = vm[:a][key]
+            ipv6net += "/#{vm[:a][:ipv6_prefix_length]}" \
+                if !vm[:a][:ipv6_prefix_length].nil? && \
+                    !vm[:a][:ipv6_prefix_length].empty? && \
+                    key == :ip6
+            run(['sudo', 'ipset', '-exist', vm[:action], chain, ipv6net])
             if e == 'IP6_GLOBAL' and !vm[:a][:ip6_link].nil?
                 link = vm[:a][:ip6_link]
                 run(['sudo', 'ipset', '-exist', vm[:action], chain, link])

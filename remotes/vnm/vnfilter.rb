@@ -1,7 +1,7 @@
 # rubocop:disable Naming/FileName
 # vim: ts=4 sw=4 et
 # -------------------------------------------------------------------------- #
-# Copyright 2002-2021, StorPool                                              #
+# Copyright 2002-2022, StorPool                                              #
 # Portion copyright OpenNebula Project, OpenNebula Systems                   #
 #                                                                            #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may    #
@@ -103,7 +103,11 @@ class VnFilter < VNMMAD::VNMDriver
                 # Skip IPv6 link local address for alias interfaces
                 next if !nic[:alias_id].nil? && key == "ip6_link"
                 if !nic[key].nil? && !nic[key].empty?
-                    ip6 << nic[key]
+                    ipv6net = nic[key]
+                    ipv6net += "/#{nic[:ipv6_prefix_length]}"\
+                        if key == :ip6 && !nic[:ipv6_prefix_length].nil? &&\
+                           !nic[:ipv6_prefix_length].empty?
+                    ip6 << ipv6net
                 end
             end
             if !nic[:alias_id].nil?
@@ -177,13 +181,13 @@ class VnFilter < VNMMAD::VNMDriver
                 ip6tables_s.each_line { |c| @slog.info "[ip6tables -S] #{c}" }
                 if ip6tables_s !~ /#{chain}-ip6-spoofing/
                     @slog.debug "altering #{chain_o} to add #{chain}-ip6-spoofing"
-                    commands.add :ipset, "create -exist #{chain}-ip6-spoofing hash:ip family inet6"
+                    commands.add :ipset, "create -exist #{chain}-ip6-spoofing hash:net family inet6"
                     commands.add :ip6tables, "-R #{chain_o} #{ipv6_offset} -m set ! --match-set #{chain}-ip6-spoofing src -j DROP"
                 end
                 if !nicdata[:ip6].nil? and !nicdata[:ip6].empty?
-                    nicdata[:ip6].each do |ip|
-                        @slog.info "ipset add #{chain}-ip6-spoofing #{ip}"
-                        commands.add :ipset, "add -exist #{chain}-ip6-spoofing #{ip}"
+                    nicdata[:ip6].each do |ipv6|
+                        @slog.info "ipset add #{chain}-ip6-spoofing #{ipv6}"
+                        commands.add :ipset, "add -exist #{chain}-ip6-spoofing #{ipv6}"
                     end
                     commands.run!
                 end

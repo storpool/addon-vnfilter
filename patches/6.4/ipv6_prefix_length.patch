@@ -1,0 +1,55 @@
+--- remotes/vnm/security_groups_iptables.rb.orig
++++ remotes/vnm/security_groups_iptables.rb
+@@ -413,7 +413,11 @@ module SGIPTables
+ 
+             [:ip6, :ip6_global, :ip6_ula].each do |ip6|
+                 if !nic[ip6].nil?
+-                    nri6s << "-I #{GLOBAL_CHAIN} -d #{nic[ip6]} -j #{chain_in}"
++                    ipv6net = nic[ip6]
++                    ipv6net += "/#{nic[:ipv6_prefix_length]}"\
++                        if ip6 == :ip6 && !nic[:ipv6_prefix_length].nil? &&\
++                           !nic[:ipv6_prefix_length].empty?
++                    nri6s << "-I #{GLOBAL_CHAIN} -d #{ipv6net} -j #{chain_in}"
+                 end
+             end
+ 
+@@ -425,7 +429,11 @@ module SGIPTables
+ 
+                 [:ip6, :ip6_global, :ip6_ula].each do |ip6|
+                     if !nic_alias[ip6].nil?
+-                        nri6s << "-I #{GLOBAL_CHAIN} -d #{nic_alias[ip6]} "\
++                        ipv6net = nic_alias[ip6]
++                        ipv6net += "/#{nic_alias[:ipv6_prefix_length]}"\
++                            if ip6 == :ip6 && !nic_alias[:ipv6_prefix_length].nil? &&\
++                               !nic_alias[:ipv6_prefix_length].empty?
++                        nri6s << "-I #{GLOBAL_CHAIN} -d #{ipv6net} "\
+                                  "-j #{chain_in}"
+                     end
+                 end
+@@ -510,17 +518,28 @@ module SGIPTables
+             ipv6s = Array.new
+ 
+             [:ip6, :ip6_global, :ip6_link, :ip6_ula, :vrouter_ip6, :vrouter_ip6_global, :vrouter_ip6_link, :vrouter_ip6_ula].each do |key|
+-                ipv6s << nic[key] if !nic[key].nil? && !nic[key].empty?
++                if !nic[key].nil? && !nic[key].empty?
++                    ipv6net = nic[key]
++                    ipv6net += "/#{nic[:ipv6_prefix_length]}"\
++                        if key == :ip6 && !nic[:ipv6_prefix_length].nil? &&\
++                           !nic[:ipv6_prefix_length].empty?
++                    ipv6s << ipv6net
++                end
+ 
+                 vars[:nics_alias].each do |nic_alias|
+-                    ipv6s << nic_alias[key] \
+-                        if !nic_alias[key].nil? && !nic_alias[key].empty?
++                    if !nic_alias[key].nil? && !nic_alias[key].empty?
++                        ipv6net = nic_alias[key]
++                        ipv6net += "/#{nic_alias[:ipv6_prefix_length]}"\
++                            if key == :ip6 && !nic_alias[:ipv6_prefix_length].nil? &&\
++                               !nic_alias[:ipv6_prefix_length].empty?
++                        ipv6s << ipv6net
++                    end
+                 end
+             end
+ 
+
