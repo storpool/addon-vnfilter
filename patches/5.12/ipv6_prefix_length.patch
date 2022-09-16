@@ -1,15 +1,19 @@
 --- remotes/vnm/security_groups_iptables.rb.orig
 +++ remotes/vnm/security_groups_iptables.rb
-@@ -452,13 +452,19 @@ module SGIPTables
+@@ -451,14 +451,23 @@ module SGIPTables
+
              ipv6s = Array.new
  
++            ipset_hash = "hash:ip"
              [:ip6, :ip6_global, :ip6_link, :ip6_ula].each do |key|
 -                ipv6s << nic[key] if !nic[key].nil? && !nic[key].empty?
 +                if !nic[key].nil? && !nic[key].empty?
 +                    ipv6net = nic[key]
-+                    ipv6net += "/#{nic[:ipv6_prefix_length]}" \
-+                      if key == :ip6 && !nic[:ipv6_prefix_length].nil? &&\
-+                        !nic[:ipv6_prefix_length].empty?
++                    if key == :ip6 && !nic[:ipset_prefix_length].nil? &&\
++                       !nic[:ipset_prefix_length].empty?
++                        ipv6net += "/#{nic[:ipset_prefix_length]}"
++                        ipset_hash = "hash:net"
++                    end
 +                    ipv6s << ipv6net
 +                end
              end
@@ -18,8 +22,7 @@
                  set = "#{vars[:chain]}-ip6-spoofing"
  
 -                commands.add :ipset, "create #{set} hash:ip family inet6"
-+                commands.add :ipset, "create #{set} hash:net family inet6"
++                commands.add :ipset, "create #{set} #{ipset_hash} family inet6"
  
                  ipv6s.each do |ip|
                      commands.add :ipset, "add -exist #{set} #{ip}"
-

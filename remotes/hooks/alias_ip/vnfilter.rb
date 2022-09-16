@@ -163,9 +163,9 @@ def toggle_ipset_filter(vm)
         if !vm[:a][key].nil? and !vm[:a][key].empty?
             chain = "#{vm[:nicdev]}-#{e.split('_')[0].downcase}-spoofing"
             ipv6net = vm[:a][key]
-            ipv6net += "/#{vm[:a][:ipv6_prefix_length]}" \
-                if !vm[:a][:ipv6_prefix_length].nil? && \
-                    !vm[:a][:ipv6_prefix_length].empty? && \
+            ipv6net += "/#{vm[:a][:ipset_prefix_length]}" \
+                if !vm[:a][:ipset_prefix_length].nil? && \
+                    !vm[:a][:ipset_prefix_length].empty? && \
                     key == :ip6
             run(['sudo', 'ipset', '-exist', vm[:action], chain, ipv6net])
             if e == 'IP6_GLOBAL' and !vm[:a][:ip6_link].nil?

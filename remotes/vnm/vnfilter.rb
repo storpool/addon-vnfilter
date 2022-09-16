@@ -104,9 +104,9 @@ class VnFilter < VNMMAD::VNMDriver
                 next if !nic[:alias_id].nil? && key == "ip6_link"
                 if !nic[key].nil? && !nic[key].empty?
                     ipv6net = nic[key]
-                    ipv6net += "/#{nic[:ipv6_prefix_length]}"\
-                        if key == :ip6 && !nic[:ipv6_prefix_length].nil? &&\
-                           !nic[:ipv6_prefix_length].empty?
+                    ipv6net += "/#{nic[:ipset_prefix_length]}"\
+                        if key == :ip6 && !nic[:ipset_prefix_length].nil? &&\
+                           !nic[:ipset_prefix_length].empty?
                     ip6 << ipv6net
                 end
             end
@@ -178,10 +178,16 @@ class VnFilter < VNMMAD::VNMDriver
                     @slog.warn "Can't process chain #{chain_o} IPv6"
                     next
                 end
+                if !nicdata[:ipset_prefix_length].nil? &&
+                    !nicdata[:ipset_prefix_length].empty?
+                    ipset_hash = "hash:net"
+                else
+                    ipset_hash = "hash:ip"
+                end
                 ip6tables_s.each_line { |c| @slog.info "[ip6tables -S] #{c}" }
                 if ip6tables_s !~ /#{chain}-ip6-spoofing/
                     @slog.debug "altering #{chain_o} to add #{chain}-ip6-spoofing"
-                    commands.add :ipset, "create -exist #{chain}-ip6-spoofing hash:net family inet6"
+                    commands.add :ipset, "create -exist #{chain}-ip6-spoofing #{ipset_hash} family inet6"
                     commands.add :ip6tables, "-R #{chain_o} #{ipv6_offset} -m set ! --match-set #{chain}-ip6-spoofing src -j DROP"
                 end
                 if !nicdata[:ip6].nil? and !nicdata[:ip6].empty?
