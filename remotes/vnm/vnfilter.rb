@@ -78,10 +78,16 @@ class VnFilter < VNMMAD::VNMDriver
         if parent_id
             ipv4 = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/IP']
             if ipv4
-                @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} BEGIN"
+                parent_ip_spoofing = vm["TEMPLATE/NIC[NIC_ID=#{parent_id}]/FILTER_IP_SPOOFING"]
+                if parent_ip_spoofing.nil? or parent_ip_spoofing != 'YES'
+                    @slog.info "activate() Skip, IP spoofing not activated on the parent interface. END"
+                    unlock
+                    return
+                end
+                @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} parent_ip_spoofing:#{parent_ip_spoofing} BEGIN"
                 chain = "one-#{vm_id}-#{parent_id}"
-                if append_ebtables(chain, ipv4)
-                    @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} END"
+                if append_ebtables(chain, ipv4) && !parent_ip_spoofing.nil? && parent_ip_spoofing == 'YES'
+                    @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} parent_ip_spoofing:#{parent_ip_spoofing} END"
                     unlock
                     return
                 end
@@ -197,88 +203,88 @@ class VnFilter < VNMMAD::VNMDriver
                     end
                     commands.run!
                 end
-            end
 
-            if nic[:filter_mac_spoofing] == "YES"
-                @slog.info "VM #{vm_id} NIC #{nic_id} FILTER_MAC_SPOOFING"
-                deactivate_ebtables(chain)
-                commands.add :ebtables, "-t nat -N #{chain_i}-arp4 -P DROP"
-                commands.add :ebtables, "-t nat -N #{chain_o}-arp4 -P DROP"
                 if !nicdata[:ip4].nil? and !nicdata[:ip4].empty?
-                    nicdata[:ip4].each do |ip|
-                        @slog.info "ARP whitelist #{ip} (#{chain})"
-                        commands.add :ebtables, "-t nat -A #{chain_i}-arp4 -p ARP "\
-                            "--arp-ip-src #{ip} -j RETURN"
-                        commands.add :ebtables, "-t nat -A #{chain_o}-arp4 -p ARP "\
-                            "--arp-ip-dst #{ip} -j RETURN"
+                    @slog.info "VM #{vm_id} NIC #{nic_id} FILTER_MAC_SPOOFING"
+                    deactivate_ebtables(chain)
+                    commands.add :ebtables, "-t nat -N #{chain_i}-arp4 -P DROP"
+                    commands.add :ebtables, "-t nat -N #{chain_o}-arp4 -P DROP"
+                    if !nicdata[:ip4].nil? and !nicdata[:ip4].empty?
+                        nicdata[:ip4].each do |ip|
+                            @slog.info "ARP whitelist #{ip} (#{chain})"
+                            commands.add :ebtables, "-t nat -A #{chain_i}-arp4 -p ARP "\
+                                "--arp-ip-src #{ip} -j RETURN"
+                            commands.add :ebtables, "-t nat -A #{chain_o}-arp4 -p ARP "\
+                                "--arp-ip-dst #{ip} -j RETURN"
+                        end
                     end
-                end
-                # Input
-                commands.add :ebtables, "-t nat -N #{chain_i}-arp -P DROP"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
-                    "-s ! #{nic[:mac]} -j DROP"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
-                        "--arp-mac-src ! #{nic[:mac]} -j DROP"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
-                    "-j #{chain_i}-arp4"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
-                    "--arp-op Request -j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
-                    "--arp-op Reply -j ACCEPT"
-                commands.add :ebtables, "-t nat -N #{chain_i}-rarp -P DROP"
-                commands.add :ebtables, "-t nat -A #{chain_i}-rarp -p 0x8035 "\
-                    "-s #{nic[:mac]} -d Broadcast --arp-op Request_Reverse "\
-                    "--arp-ip-src 0.0.0.0 --arp-ip-dst 0.0.0.0 "\
-                    "--arp-mac-src #{nic[:mac]} --arp-mac-dst #{nic[:mac]} "\
-                    "-j ACCEPT"
-                commands.add :ebtables, "-t nat -N #{chain_i} -P ACCEPT"
-#            commands.add :ebtables, "-t nat -N #{chain_i}-ip4 -P ACCEPT"
-#            commands.add :ebtables, "-t nat -A #{chain_i}-ip4 "\
-#                "-s ! #{nic[:mac]} -j DROP"
-#            commands.add :ebtables, "-t nat -A #{chain_i} -p IPv4 "\
-#                "-j #{chain_i}-ip4"
-                commands.add :ebtables, "-t nat -A #{chain_i} -p IPv4 "\
-                    "-j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_i} -p IPv6 "\
-                    "-j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_i} -p ARP "\
-                    "-j #{chain_i}-arp"
-                commands.add :ebtables, "-t nat -A #{chain_i} -p 0x8035 "\
-                    "-j #{chain_i}-rarp"
-                commands.add :ebtables, "-t nat -A PREROUTING -i #{chain} "\
-                    "-j #{chain_i}"
-                # Output
-                commands.add :ebtables, "-t nat -N #{chain_o}-arp -P DROP"
-                commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
-                    "--arp-op Reply --arp-mac-dst ! #{nic[:mac]} -j DROP"
-                commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
-                    "-j #{chain_o}-arp4"
-                commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
-                    "--arp-op Request -j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
-                    "--arp-op Reply -j ACCEPT"
-                commands.add :ebtables, "-t nat -N #{chain_o}-rarp -P DROP"
-                commands.add :ebtables, "-t nat -A #{chain_o}-rarp -p 0x8035 "\
-                    "-d Broadcast --arp-op Request_Reverse "\
-                    "--arp-ip-src 0.0.0.0 --arp-ip-dst 0.0.0.0 "\
-                    "--arp-mac-src #{nic[:mac]} --arp-mac-dst #{nic[:mac]} "\
-                    "-j ACCEPT"
-                commands.add :ebtables, "-t nat -N #{chain_o} -P ACCEPT"
-#            commands.add :ebtables, "-t nat -N #{chain_o}-ip4 -P ACCEPT"
-#            commands.add :ebtables, "-t nat -A #{chain_o} -p IPv4 "\
-#                "-j #{chain_o}-ip4"
-                commands.add :ebtables, "-t nat -A #{chain_o} -p IPv4 "\
-                    "-j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_o} -p IPv6 "\
-                    "-j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_o} -p ARP "\
-                    "-j #{chain_o}-arp"
-                commands.add :ebtables, "-t nat -A #{chain_o} -p 0x8035 "\
-                    "-j #{chain_o}-rarp"
-                commands.add :ebtables, "-t nat -A POSTROUTING -o #{chain} "\
-                    "-j #{chain_o}"
+                    # Input
+                    commands.add :ebtables, "-t nat -N #{chain_i}-arp -P DROP"
+                    commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                        "-s ! #{nic[:mac]} -j DROP"
+                    commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                            "--arp-mac-src ! #{nic[:mac]} -j DROP"
+                    commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                        "-j #{chain_i}-arp4"
+                    commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                        "--arp-op Request -j ACCEPT"
+                    commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                        "--arp-op Reply -j ACCEPT"
+                    commands.add :ebtables, "-t nat -N #{chain_i}-rarp -P DROP"
+                    commands.add :ebtables, "-t nat -A #{chain_i}-rarp -p 0x8035 "\
+                        "-s #{nic[:mac]} -d Broadcast --arp-op Request_Reverse "\
+                        "--arp-ip-src 0.0.0.0 --arp-ip-dst 0.0.0.0 "\
+                        "--arp-mac-src #{nic[:mac]} --arp-mac-dst #{nic[:mac]} "\
+                        "-j ACCEPT"
+                    commands.add :ebtables, "-t nat -N #{chain_i} -P ACCEPT"
+    #            commands.add :ebtables, "-t nat -N #{chain_i}-ip4 -P ACCEPT"
+    #            commands.add :ebtables, "-t nat -A #{chain_i}-ip4 "\
+    #                "-s ! #{nic[:mac]} -j DROP"
+    #            commands.add :ebtables, "-t nat -A #{chain_i} -p IPv4 "\
+    #                "-j #{chain_i}-ip4"
+                    commands.add :ebtables, "-t nat -A #{chain_i} -p IPv4 "\
+                        "-j ACCEPT"
+                    commands.add :ebtables, "-t nat -A #{chain_i} -p IPv6 "\
+                        "-j ACCEPT"
+                    commands.add :ebtables, "-t nat -A #{chain_i} -p ARP "\
+                        "-j #{chain_i}-arp"
+                    commands.add :ebtables, "-t nat -A #{chain_i} -p 0x8035 "\
+                        "-j #{chain_i}-rarp"
+                    commands.add :ebtables, "-t nat -A PREROUTING -i #{chain} "\
+                        "-j #{chain_i}"
+                    # Output
+                    commands.add :ebtables, "-t nat -N #{chain_o}-arp -P DROP"
+                    commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
+                        "--arp-op Reply --arp-mac-dst ! #{nic[:mac]} -j DROP"
+                    commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
+                        "-j #{chain_o}-arp4"
+                    commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
+                        "--arp-op Request -j ACCEPT"
+                    commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
+                        "--arp-op Reply -j ACCEPT"
+                    commands.add :ebtables, "-t nat -N #{chain_o}-rarp -P DROP"
+                    commands.add :ebtables, "-t nat -A #{chain_o}-rarp -p 0x8035 "\
+                        "-d Broadcast --arp-op Request_Reverse "\
+                        "--arp-ip-src 0.0.0.0 --arp-ip-dst 0.0.0.0 "\
+                        "--arp-mac-src #{nic[:mac]} --arp-mac-dst #{nic[:mac]} "\
+                        "-j ACCEPT"
+                    commands.add :ebtables, "-t nat -N #{chain_o} -P ACCEPT"
+    #            commands.add :ebtables, "-t nat -N #{chain_o}-ip4 -P ACCEPT"
+    #            commands.add :ebtables, "-t nat -A #{chain_o} -p IPv4 "\
+    #                "-j #{chain_o}-ip4"
+                    commands.add :ebtables, "-t nat -A #{chain_o} -p IPv4 "\
+                        "-j ACCEPT"
+                    commands.add :ebtables, "-t nat -A #{chain_o} -p IPv6 "\
+                        "-j ACCEPT"
+                    commands.add :ebtables, "-t nat -A #{chain_o} -p ARP "\
+                        "-j #{chain_o}-arp"
+                    commands.add :ebtables, "-t nat -A #{chain_o} -p 0x8035 "\
+                        "-j #{chain_o}-rarp"
+                    commands.add :ebtables, "-t nat -A POSTROUTING -o #{chain} "\
+                        "-j #{chain_o}"
 
-                commands.run!
+                    commands.run!
+                end
             end
         end
         @slog.info "activate() VM #{vm_id} END"

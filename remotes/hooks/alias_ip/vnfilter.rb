@@ -158,6 +158,7 @@ def toggle_ebtables_filter(vm)
 end
 
 def toggle_ipset_filter(vm)
+    toggle_ebtables_filter(vm)
     ['IP', 'IP6', 'IP6_GLOBAL'].each do |e|
         key = e.downcase.to_sym
         if !vm[:a][key].nil? and !vm[:a][key].empty?
@@ -191,7 +192,7 @@ vm = vm_data()
 
 filters = Hash.new
 filters[:filter_ip_spoofing] = method(:toggle_ipset_filter)
-filters[:filter_mac_spoofing] = method(:toggle_ebtables_filter)
+#filters[:filter_mac_spoofing] = method(:toggle_ebtables_filter)
 
 filters.each do |key, method|
     if !vm[:n][key].nil?
