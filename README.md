@@ -36,7 +36,7 @@ dnf -y install opennebula-rubygems
 For Ubuntu...
 
 ```bash
-sudo apt -y install opennebula-rubygems || \
+sudo apt -y install opennebula-rubygems
 ```
 
 Enable oneadmin to execute ebtables-save on the hosts.
