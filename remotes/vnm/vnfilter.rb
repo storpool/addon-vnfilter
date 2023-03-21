@@ -76,6 +76,18 @@ class VnFilter < VNMMAD::VNMDriver
         parent_id = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/PARENT_ID']
         caller_mad = caller[-1].split('/')[-3]
         if parent_id
+            parent_mac_spoofing = vm["TEMPLATE/NIC[NIC_ID=#{parent_id}]/FILTER_MAC_SPOOFING"]
+            if !parent_mac_spoofing.nil? && !parent_mac_spoofing.empty?
+                if parent_mac_spoofing.upcase! != 'YES'
+                    @slog.warn "activate() VM #{vm_id} Warning: parent NIC_ID #{parent_id} has FILTER_MAC_SPOOFING=#{parent_mac_spoofing}! //SKIP"
+                    unlock
+                    return
+                end
+            else
+                @slog.warn "activate() VM #{vm_id} Warning: no FILTER_MAC_SPOOFING enabled on parent NIC_ID #{parent_id}! //SKIP"
+                unlock
+                return
+            end
             ipv4 = vm['TEMPLATE/NIC_ALIAS[ATTACH="YES"]/IP']
             if ipv4
                 @slog.info "activate() VM #{vm_id} parent_id:#{parent_id} BEGIN"
