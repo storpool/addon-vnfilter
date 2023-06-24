@@ -340,11 +340,12 @@ class VnFilter < VNMMAD::VNMDriver
         ebtables_nat = commands.run!
         if !ebtables_nat.nil?
             ebtables = Array.new
+            chains = Array.new
             ebtables_nat.split("\n").each do |rule|
                 if ipv4
                     if rule.match(/-A #{chain}/)
                         rule_e = rule.split
-                        #@slog.info "[rule] #{rule}"
+                        @slog.info "[rule] #{rule}"
                         if rule_e[5] == ipv4
                             @slog.info "Delete #{rule}"
                             ebtables.push("-t nat -D #{rule_e[1..-1].join(" ")}")
@@ -367,7 +368,23 @@ class VnFilter < VNMMAD::VNMDriver
                         ebtables.push("-t nat -X #{rule_e[-1]}")
                     end
                 end
+
+                # save any chains found
+                if rule.match(/:#{chain}/)
+                    rule_e = rule.split
+                    c = rule_e[0][1..-1]
+                    @slog.info "[chain] #{c}"
+                    chains.push(c)
+                end
             end
+
+            chains.each do |c|
+                unless ebtables.include? "-t nat -X #{c}"
+                    ebtables.push("-t nat -F #{c}")
+                    ebtables.push("-t nat -X #{c}")
+                end
+            end
+
             if ebtables.any?
                 ebtables.each { |c| @slog.info "[run] ebtables #{c}" }
                 ebtables.each { |c| commands.add :ebtables, c }
