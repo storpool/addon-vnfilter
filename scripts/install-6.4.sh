@@ -16,7 +16,7 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-for mad in im vnm; do
+for mad in vnm; do
     [[ -d "patches/${mad}" ]] || continue
     for ver in "${ONE_VER:-0.0}" "${ONE_MAJOR:-0}.${ONE_MINOR:-0}"; do
         patchdir="${PWD}/patches/${mad}/${ver}"
