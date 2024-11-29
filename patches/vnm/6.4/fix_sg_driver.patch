@@ -1,0 +1,33 @@
+--- remotes.orig/vnm/sg_driver.rb	2024-11-06 00:00:00.000000000 +0000
++++ remotes/vnm/sg_driver.rb	2024-11-27 00:00:00.000000000 +0000
+@@ -86,6 +86,7 @@
+             end
+ 
+             # Process the rules for each NIC
++            sg_error = 0
+             process do |nic|
+                 next if attach_nic_id && attach_nic_id != nic[:nic_id]
+ 
+@@ -109,9 +110,8 @@
+                         sg.process_rules
+                         sg.run!
+                     rescue Exception => e
+-                        unlock
+-                        deactivate(do_all)
+-                        raise e
++                        sg_error = e
++                        break
+                     end
+                 end
+ 
+@@ -127,6 +127,10 @@
+ 
+             unlock
+ 
++            unless sg_error == 0
++                raise sg_error
++            end
++
+             0
+         end
+ 
