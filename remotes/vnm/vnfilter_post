@@ -31,7 +31,6 @@ begin
     vn_filter = VnFilter.from_base64(template64, xpath_filter, deploy_id)
     vn_filter.activate
 rescue Exception => e
-    OpenNebula.log_error(e.message)
-    OpenNebula.log_error(e.backtrace)
+    OpenNebula::DriverLogger.log_error(e)
     exit 1
 end

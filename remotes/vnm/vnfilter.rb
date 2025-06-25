@@ -152,7 +152,7 @@ class VnFilter < VNMMAD::VNMDriver
                 next
             end
             @slog.info "VM #{vm_id} nic_id #{nic_id} attach_nic_id:#{attach_nic_id}"
-            OpenNebula.log_info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} attach_nic_id #{attach_nic_id}"
+            OpenNebula::DriverLogger.log_info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} attach_nic_id #{attach_nic_id}"
             next if attach_nic_id and attach_nic_id != nic_id
             chain = "one-#{vm_id}-#{nic_id}"
             chain_i = "#{chain}-i"
