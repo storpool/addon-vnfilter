@@ -144,7 +144,7 @@ else
     sudo apt -y install opennebula-rubygems || \
     sudo yum -y install rubygem-nokogiri || \
     echo -e "\n*** Please install rubygem nokogiri.\n"
-    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" | sudo tee /etc/sudoers.d/vnfilter
+    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save, /usr/sbin/ebtables" | sudo tee /etc/sudoers.d/vnfilter
     sudo chmod 0440 /etc/sudoers.d/vnfilter
 fi
 

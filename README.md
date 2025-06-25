@@ -39,10 +39,10 @@ For Ubuntu...
 sudo apt -y install opennebula-rubygems
 ```
 
-Enable oneadmin to execute ebtables-save on the hosts.
+Enable oneadmin to execute ebtables and ebtables-save on the hosts.
 
 ```bash
-echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" |sudo tee /etc/sudoers.d/vnfilter
+echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save, /usr/sbin/ebtables" |sudo tee /etc/sudoers.d/vnfilter
 sudo chmod 0440 /etc/sudoers.d/vnfilter
 ```
 
