@@ -58,7 +58,7 @@ class VnFilter < VNMMAD::VNMDriver
         if dirs.any?
             dirs.each do |k,v|
                 @slog.info "whitelist arp-ip-#{v} #{ipv4} (#{k})"
-                commands.add :ebtables, "-t nat -A #{chain}-#{k}-arp4 -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain}-#{k}-arp4 -p ARP "\
                                             "--arp-ip-#{v} #{ipv4} -j RETURN"
                 ret = true
             end
@@ -214,80 +214,80 @@ class VnFilter < VNMMAD::VNMDriver
             if nic[:filter_mac_spoofing] == "YES"
                 @slog.info "VM #{vm_id} NIC #{nic_id} FILTER_MAC_SPOOFING"
                 deactivate_ebtables(chain)
-                commands.add :ebtables, "-t nat -N #{chain_i}-arp4 -P DROP"
-                commands.add :ebtables, "-t nat -N #{chain_o}-arp4 -P DROP"
+                commands.add "sudo -n ebtables", "-t nat -N #{chain_i}-arp4 -P DROP"
+                commands.add "sudo -n ebtables", "-t nat -N #{chain_o}-arp4 -P DROP"
                 if !nicdata[:ip4].nil? and !nicdata[:ip4].empty?
                     nicdata[:ip4].each do |ip|
                         @slog.info "ARP whitelist #{ip} (#{chain})"
-                        commands.add :ebtables, "-t nat -A #{chain_i}-arp4 -p ARP "\
+                        commands.add "sudo -n ebtables", "-t nat -A #{chain_i}-arp4 -p ARP "\
                             "--arp-ip-src #{ip} -j RETURN"
-                        commands.add :ebtables, "-t nat -A #{chain_o}-arp4 -p ARP "\
+                        commands.add "sudo -n ebtables", "-t nat -A #{chain_o}-arp4 -p ARP "\
                             "--arp-ip-dst #{ip} -j RETURN"
                     end
                 end
                 # Input
-                commands.add :ebtables, "-t nat -N #{chain_i}-arp -P DROP"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -N #{chain_i}-arp -P DROP"
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i}-arp -p ARP "\
                     "-s ! #{nic[:mac]} -j DROP"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i}-arp -p ARP "\
                         "--arp-mac-src ! #{nic[:mac]} -j DROP"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i}-arp -p ARP "\
                     "-j #{chain_i}-arp4"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i}-arp -p ARP "\
                     "--arp-op Request -j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_i}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i}-arp -p ARP "\
                     "--arp-op Reply -j ACCEPT"
-                commands.add :ebtables, "-t nat -N #{chain_i}-rarp -P DROP"
-                commands.add :ebtables, "-t nat -A #{chain_i}-rarp -p 0x8035 "\
+                commands.add "sudo -n ebtables", "-t nat -N #{chain_i}-rarp -P DROP"
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i}-rarp -p 0x8035 "\
                     "-s #{nic[:mac]} -d Broadcast --arp-op Request_Reverse "\
                     "--arp-ip-src 0.0.0.0 --arp-ip-dst 0.0.0.0 "\
                     "--arp-mac-src #{nic[:mac]} --arp-mac-dst #{nic[:mac]} "\
                     "-j ACCEPT"
-                commands.add :ebtables, "-t nat -N #{chain_i} -P ACCEPT"
-#            commands.add :ebtables, "-t nat -N #{chain_i}-ip4 -P ACCEPT"
-#            commands.add :ebtables, "-t nat -A #{chain_i}-ip4 "\
+                commands.add "sudo -n ebtables", "-t nat -N #{chain_i} -P ACCEPT"
+#            commands.add "sudo -n ebtables", "-t nat -N #{chain_i}-ip4 -P ACCEPT"
+#            commands.add "sudo -n ebtables", "-t nat -A #{chain_i}-ip4 "\
 #                "-s ! #{nic[:mac]} -j DROP"
-#            commands.add :ebtables, "-t nat -A #{chain_i} -p IPv4 "\
+#            commands.add "sudo -n ebtables", "-t nat -A #{chain_i} -p IPv4 "\
 #                "-j #{chain_i}-ip4"
-                commands.add :ebtables, "-t nat -A #{chain_i} -p IPv4 "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i} -p IPv4 "\
                     "-j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_i} -p IPv6 "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i} -p IPv6 "\
                     "-j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_i} -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i} -p ARP "\
                     "-j #{chain_i}-arp"
-                commands.add :ebtables, "-t nat -A #{chain_i} -p 0x8035 "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_i} -p 0x8035 "\
                     "-j #{chain_i}-rarp"
-                commands.add :ebtables, "-t nat -A PREROUTING -i #{chain} "\
+                commands.add "sudo -n ebtables", "-t nat -A PREROUTING -i #{chain} "\
                     "-j #{chain_i}"
                 # Output
-                commands.add :ebtables, "-t nat -N #{chain_o}-arp -P DROP"
-                commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -N #{chain_o}-arp -P DROP"
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o}-arp -p ARP "\
                     "--arp-op Reply --arp-mac-dst ! #{nic[:mac]} -j DROP"
-                commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o}-arp -p ARP "\
                     "-j #{chain_o}-arp4"
-                commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o}-arp -p ARP "\
                     "--arp-op Request -j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_o}-arp -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o}-arp -p ARP "\
                     "--arp-op Reply -j ACCEPT"
-                commands.add :ebtables, "-t nat -N #{chain_o}-rarp -P DROP"
-                commands.add :ebtables, "-t nat -A #{chain_o}-rarp -p 0x8035 "\
+                commands.add "sudo -n ebtables", "-t nat -N #{chain_o}-rarp -P DROP"
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o}-rarp -p 0x8035 "\
                     "-d Broadcast --arp-op Request_Reverse "\
                     "--arp-ip-src 0.0.0.0 --arp-ip-dst 0.0.0.0 "\
                     "--arp-mac-src #{nic[:mac]} --arp-mac-dst #{nic[:mac]} "\
                     "-j ACCEPT"
-                commands.add :ebtables, "-t nat -N #{chain_o} -P ACCEPT"
-#            commands.add :ebtables, "-t nat -N #{chain_o}-ip4 -P ACCEPT"
-#            commands.add :ebtables, "-t nat -A #{chain_o} -p IPv4 "\
+                commands.add "sudo -n ebtables", "-t nat -N #{chain_o} -P ACCEPT"
+#            commands.add "sudo -n ebtables", "-t nat -N #{chain_o}-ip4 -P ACCEPT"
+#            commands.add "sudo -n ebtables", "-t nat -A #{chain_o} -p IPv4 "\
 #                "-j #{chain_o}-ip4"
-                commands.add :ebtables, "-t nat -A #{chain_o} -p IPv4 "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o} -p IPv4 "\
                     "-j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_o} -p IPv6 "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o} -p IPv6 "\
                     "-j ACCEPT"
-                commands.add :ebtables, "-t nat -A #{chain_o} -p ARP "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o} -p ARP "\
                     "-j #{chain_o}-arp"
-                commands.add :ebtables, "-t nat -A #{chain_o} -p 0x8035 "\
+                commands.add "sudo -n ebtables", "-t nat -A #{chain_o} -p 0x8035 "\
                     "-j #{chain_o}-rarp"
-                commands.add :ebtables, "-t nat -A POSTROUTING -o #{chain} "\
+                commands.add "sudo -n ebtables", "-t nat -A POSTROUTING -o #{chain} "\
                     "-j #{chain_o}"
 
                 commands.run!
@@ -387,7 +387,7 @@ class VnFilter < VNMMAD::VNMDriver
 
             if ebtables.any?
                 ebtables.each { |c| @slog.info "[run] ebtables #{c}" }
-                ebtables.each { |c| commands.add :ebtables, c }
+                ebtables.each { |c| commands.add "sudo -n ebtables", c }
                 commands.run!
             end
         end

@@ -180,7 +180,7 @@ else
             ;;
     esac
 
-    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" | sudo tee /etc/sudoers.d/vnfilter
+    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save, /usr/sbin/ebtables" | sudo tee /etc/sudoers.d/vnfilter
     sudo chmod 0440 /etc/sudoers.d/vnfilter
 fi
 
