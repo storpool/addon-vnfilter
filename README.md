@@ -21,29 +21,64 @@ cp -a remotes/ /var/lib/one/
 chown -R oneadmin.oneadmin /var/lib/one/remotes/
 ```
 
-Install the _nokogiri_ rubygem on the hosts. The following example is for CentOS 7, check the Os docs/packages if other OS is used.
+### Host prerequisites
+
+The addon shells out to `iptables`, `ip6tables`, `ipset`, `ebtables` and
+`ebtables-save`, and its host hook uses the `nokogiri` and `rexml` Ruby
+gems. The easiest way to install everything is to run the bundled
+installer from the addon directory on each KVM host:
 
 ```bash
-yum -y --enablerepo=epel install rubygem-nokogiri
+sudo HOST_INSTALL=1 bash install.sh
 ```
 
-Almalinux/Rocky had no rubygem-nokogiri in EPEL so install opennebula-rubygems package from OpenNebula 5.12+ on the hosts.
+The equivalent manual commands are:
+
+#### AlmaLinux / Rocky / RHEL / Oracle Linux 8+
 
 ```bash
-dnf -y install opennebula-rubygems
+sudo dnf -y install \
+    opennebula-rubygems \
+    rubygem-rexml \
+    iptables-nft \
+    ipset
+
+# EL8 only: ebtables ships in its own package
+sudo dnf -y install iptables-ebtables
 ```
 
-For Ubuntu...
+#### Debian / Ubuntu
 
 ```bash
-sudo apt -y install opennebula-rubygems
+sudo apt-get -y install \
+    opennebula-rubygems \
+    ruby-rexml \
+    iptables \
+    ebtables \
+    ipset
 ```
+
+### Sudoers rule
 
 Enable oneadmin to execute ebtables-save on the hosts.
 
 ```bash
 echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" |sudo tee /etc/sudoers.d/vnfilter
 sudo chmod 0440 /etc/sudoers.d/vnfilter
+```
+
+### Verifying the host prerequisites
+
+Once the packages are in place, the following commands should all succeed
+on every KVM host (run as root or via `sudo`):
+
+```bash
+ruby -e "require 'rexml/document'; puts :ok"
+iptables -V
+ip6tables -V
+ebtables -V
+ipset -v
+sudo -u oneadmin sudo -n ebtables-save >/dev/null && echo "sudoers OK"
 ```
 
 Sync the OpenNebula MADs to the hosts
