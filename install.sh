@@ -139,11 +139,47 @@ if [[ -z "${HOST_INSTALL}" ]]; then
         fi
     fi
 else
-    # on the hosts
-    sudo dnf -y install opennebula-rubygems || \
-    sudo apt -y install opennebula-rubygems || \
-    sudo yum -y install rubygem-nokogiri || \
-    echo -e "\n*** Please install rubygem nokogiri.\n"
+    ### --- Get OS variables
+    if [[ -f '/etc/os-release' ]]; then
+        # shellcheck source=/etc/os-release
+        . /etc/os-release
+    else
+        echo "ERROR: Unable to determine system version." 1>&2
+        exit 128
+    fi
+
+    MAJOR_VERSION="${VERSION_ID%%.*}"
+
+    ### --- Install host prerequisites per OS family
+    case "${ID}" in
+        rhel|almalinux|rocky|ol)
+            sudo dnf -y install \
+                opennebula-rubygems \
+                rubygem-rexml \
+                iptables-nft \
+                ipset
+            # On EL8 ebtables ships in its own package; on EL9+ it is
+            # provided via the iptables-nft alternatives mechanism.
+            if [[ "${MAJOR_VERSION}" == "8" ]]; then
+                sudo dnf -y install iptables-ebtables
+            fi
+            ;;
+        debian|ubuntu)
+            sudo apt-get -y install \
+                opennebula-rubygems \
+                ruby-rexml \
+                iptables \
+                ebtables \
+                ipset
+            ;;
+        *)
+            echo "ERROR: Unsupported host distro '${ID}'." 1>&2
+            echo "Install rubygem-nokogiri (or rexml), iptables, ip6tables," 1>&2
+            echo "ebtables and ipset manually before running the addon." 1>&2
+            exit 1
+            ;;
+    esac
+
     echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" | sudo tee /etc/sudoers.d/vnfilter
     sudo chmod 0440 /etc/sudoers.d/vnfilter
 fi
