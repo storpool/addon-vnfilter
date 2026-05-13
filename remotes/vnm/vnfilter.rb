@@ -20,6 +20,11 @@
 require 'vnmmad'
 require 'syslog/logger'
 
+# Compat shim: ONE 7.0 introduces OpenNebula::DriverLogger and removes
+# OpenNebula.log_info/log_error. Pick whichever is available so the
+# same addon tree works on both 6.x and 7.0+.
+DRIVER_LOGGER = defined?(OpenNebula::DriverLogger) ? OpenNebula::DriverLogger : OpenNebula
+
 # IP filter for aliases
 class VnFilter < VNMMAD::VNMDriver
 
@@ -152,7 +157,7 @@ class VnFilter < VNMMAD::VNMDriver
                 next
             end
             @slog.info "VM #{vm_id} nic_id #{nic_id} attach_nic_id:#{attach_nic_id}"
-            OpenNebula::DriverLogger.log_info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} attach_nic_id #{attach_nic_id}"
+            DRIVER_LOGGER.log_info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} attach_nic_id #{attach_nic_id}"
             next if attach_nic_id and attach_nic_id != nic_id
             chain = "one-#{vm_id}-#{nic_id}"
             chain_i = "#{chain}-i"

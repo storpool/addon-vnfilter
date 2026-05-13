@@ -78,7 +78,8 @@ iptables -V
 ip6tables -V
 ebtables -V
 ipset -v
-sudo -u oneadmin sudo -n ebtables-save >/dev/null && echo "sudoers OK"
+sudo -u oneadmin sudo -n ebtables-save >/dev/null && echo "sudoers ebtables-save OK"
+sudo -u oneadmin sudo -n ebtables -L >/dev/null && echo "sudoers ebtables OK"
 ```
 
 Sync the OpenNebula MADs to the hosts
