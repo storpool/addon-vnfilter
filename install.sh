@@ -141,8 +141,8 @@ if [[ -z "${HOST_INSTALL}" ]]; then
 else
     ### --- Get OS variables
     if [[ -f '/etc/os-release' ]]; then
-        # shellcheck source=/etc/os-release
-        . /etc/os-release
+        ID=$(grep -E '^ID=' /etc/os-release | cut -d= -f2- | tr -d '"')
+        VERSION_ID=$(grep -E '^VERSION_ID=' /etc/os-release | cut -d= -f2- | tr -d '"')
     else
         echo "ERROR: Unable to determine system version." 1>&2
         exit 128
@@ -180,7 +180,7 @@ else
             ;;
     esac
 
-    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save" | sudo tee /etc/sudoers.d/vnfilter
+    echo "oneadmin ALL=(ALL) NOPASSWD: /usr/sbin/ebtables-save, /usr/sbin/ebtables" | sudo tee /etc/sudoers.d/vnfilter
     sudo chmod 0440 /etc/sudoers.d/vnfilter
 fi
 
