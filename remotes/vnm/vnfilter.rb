@@ -26,7 +26,44 @@ class VnFilter < VNMMAD::VNMDriver
     DRIVER = 'vnfilter'
     XPATH_FILTER = 'TEMPLATE/NIC|TEMPLATE/NIC_ALIAS'
 
+    # OpenNebula::DriverLogger (7.x+) or OpenNebula.log_* (6.x via scripts_common).
+    def self.driver_log_backend
+        @driver_log_backend ||= if defined?(OpenNebula::DriverLogger) &&
+                                   OpenNebula::DriverLogger.respond_to?(:log_info)
+                                    OpenNebula::DriverLogger
+                                elsif defined?(OpenNebula) &&
+                                      OpenNebula.respond_to?(:log_info)
+                                    OpenNebula
+                                end
+    end
+
+    def self.normalize_driver_log(message)
+        case message
+        when Exception
+            ([message.message] + (message.backtrace || [])).join("\n")
+        when Array
+            message.join("\n")
+        else
+            message.to_s
+        end
+    end
+
+    def self.log_info(message)
+        driver_log_backend&.log_info(normalize_driver_log(message))
+    end
+
+    def self.log_error(message)
+        driver_log_backend&.log_error(normalize_driver_log(message))
+    end
+
+    # :ebtables is in VNMNetwork::COMMANDS on 6.x; dropped in 7.x (command.rb).
+    def self.ensure_ebtables_command
+        cmds = VNMMAD::VNMNetwork::COMMANDS
+        cmds[:ebtables] ||= 'sudo -n ebtables'
+    end
+
     def initialize(vm_template, xpath_filter = nil, deploy_id = nil)
+        self.class.ensure_ebtables_command
         @locking = true
         @slog = Syslog::Logger.new 'vnfilter'
         xpath_filter ||= XPATH_FILTER
@@ -152,7 +189,7 @@ class VnFilter < VNMMAD::VNMDriver
                 next
             end
             @slog.info "VM #{vm_id} nic_id #{nic_id} attach_nic_id:#{attach_nic_id}"
-            OpenNebula.log_info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} attach_nic_id #{attach_nic_id}"
+            self.class.log_info "VM #{vm_id} nic_id #{nic_id} #{vn_mad} attach_nic_id #{attach_nic_id}"
             next if attach_nic_id and attach_nic_id != nic_id
             chain = "one-#{vm_id}-#{nic_id}"
             chain_i = "#{chain}-i"
